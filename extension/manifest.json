@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "Notificaciones de Gmail con Jev",
+  "short_name": "Gmail con Jev",
+  "description": "Escribe qué correos merecen un aviso. Jev evalúa las vistas previas nuevas de Gmail mientras lo tienes abierto.",
+  "version": "0.1.0",
+  "permissions": ["storage", "nativeMessaging", "alarms"],
+  "host_permissions": ["https://mail.google.com/*"],
+  "background": {"scripts": ["background.js"]},
+  "content_scripts": [{"matches": ["https://mail.google.com/mail/*"], "js": ["gmail.js", "reader.js"], "run_at": "document_idle"}],
+  "action": {"default_title": "Gmail con Jev", "default_popup": "popup.html", "default_icon": "icon.svg"},
+  "options_ui": {"page": "settings.html"},
+  "icons": {"512": "icon.svg"},
+  "content_security_policy": {"extension_pages": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'"}
+}

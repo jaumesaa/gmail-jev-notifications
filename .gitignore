@@ -1,0 +1,11 @@
+.DS_Store
+build/
+dist/
+.env*
+*.key
+*.p12
+*.mobileprovision
+xcuserdata/
+*.xcuserstate
+node_modules/
+work/

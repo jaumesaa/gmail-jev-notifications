@@ -1,0 +1,10 @@
+import {readFileSync, readdirSync, existsSync} from 'node:fs';
+import {execFileSync} from 'node:child_process';
+const manifest = JSON.parse(readFileSync('extension/manifest.json', 'utf8'));
+execFileSync(process.execPath, ['scripts/bundle.mjs', '--check']);
+if (manifest.host_permissions.join() !== 'https://mail.google.com/*') throw new Error('Unexpected host permissions');
+for (const name of readdirSync('extension').filter(name => name.endsWith('.js'))) execFileSync(process.execPath, ['--check', `extension/${name}`]);
+for (const name of ['popup.html', 'settings.html', 'ui.css', 'ui.js', 'background.js', 'gmail.js', 'reader.js', 'icon.svg', 'lib/core.js']) if (!existsSync(`extension/${name}`)) throw new Error(`Missing ${name}`);
+const native = readFileSync('native/SafariWebExtensionHandler.swift', 'utf8');
+if (!native.includes('https://api.typesafe.ai/v1/systemone') || native.includes('os_log')) throw new Error('Unexpected native transport or logging');
+console.log('Manifest, syntax and required assets: OK');

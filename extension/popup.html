@@ -1,0 +1,9 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Gmail con Jev</title><link rel="stylesheet" href="ui.css"></head><body class="popup"><main>
+<header><img src="icon.svg" width="42" height="42" alt=""><div><p class="eyebrow">TU ATENCIÓN, TUS REGLAS</p><h1>Gmail con Jev</h1></div><span id="badge">Pausado</span></header>
+<p class="lead">Solo los correos que te importan.</p>
+<label for="criteria">¿Cuándo quieres que te avise?</label><textarea id="criteria" maxlength="4000" rows="5" placeholder="Avísame cuando haeyoday empiece un directo. Ignora los resúmenes y las promociones."></textarea>
+<p class="hint" id="readingMode">Mantén abierta la lista de Recibidos. El modo de lectura se configura en los ajustes.</p>
+<div class="actions"><button id="activate" class="primary">Activar filtro</button><button id="pause">Pausar</button></div>
+<p id="feedback" role="status" aria-live="polite"></p><div class="monitor"><span id="health">Comprobando conexión…</span><span id="usage"></span></div>
+<footer><button id="settings" class="link">Clave y ajustes</button><a href="https://mail.google.com/mail/u/0/#inbox" target="_blank" rel="noreferrer">Abrir Gmail ↗</a></footer>
+</main><script type="module" src="ui.js"></script></body></html>
