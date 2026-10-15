@@ -2,6 +2,7 @@ import {DEFAULTS, settings, sanitizeMessage, messageKey, budgetUsage, isFresh, b
 
 const NATIVE_ID = 'io.github.jaumesaa.GmailJev';
 let tail = Promise.resolve();
+const readerResults = new Map();
 function serial(job) {
   const result = tail.then(job);
   tail = result.catch(() => {});
@@ -21,17 +22,21 @@ async function log(status, extra = {}) {
   await browser.storage.local.set({activity: [{at: Date.now(), status, ...extra}, ...activity].slice(0, 40)});
 }
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
-async function readFullMessage(message) {
-  const tab = await browser.tabs.create({url:'about:blank', active:false});
+async function readFullMessage(message, readerTab) {
+  const tab = readerTab ? await browser.tabs.get(readerTab) : await browser.tabs.create({url:'about:blank', active:false});
+  if (readerTab && tab.url !== message.threadURL) throw new Error('Lectura de Gmail: la pestaña pendiente ha cambiado de correo.');
   const stored = await browser.storage.local.get('readerJobs');
-  const job = {id:message.id, wasUnread:message.wasUnread, token:crypto.randomUUID(), startedAt:Date.now()};
+  const job = {id:message.id, wasUnread:message.wasUnread, token:crypto.randomUUID(), startedAt:Date.now(), message};
   await browser.storage.local.set({readerJobs:{...(stored.readerJobs || {}), [tab.id]:job}});
-  await browser.tabs.update(tab.id, {url:message.threadURL});
+  if (readerTab) await browser.tabs.reload(tab.id);
+  else await browser.tabs.update(tab.id, {url:message.threadURL});
   let result = null;
-  for (let attempt=0; attempt<30; attempt++) {
-    try { result = await browser.tabs.sendMessage(tab.id, {type:'readFull', token:job.token}); if (result) break; }
-    catch { await wait(1000); }
+  for (let attempt=0; attempt<180; attempt++) {
+    result = readerResults.get(job.token);
+    if (result) break;
+    await wait(250);
   }
+  readerResults.delete(job.token);
   if (result?.restored) {
     const stored = await browser.storage.local.get('readerJobs');
     const jobs = stored.readerJobs || {}; delete jobs[tab.id];
@@ -74,7 +79,7 @@ async function drain() {
     return;
   }
   try {
-    const email = data.config.readFull ? await readFullMessage(item.message) : item.message;
+    const email = data.config.readFull ? await readFullMessage(item.message, item.readerTab) : item.message;
     const beforeCall = await read();
     if (!beforeCall.config.active || beforeCall.config.revision !== item.revision) return;
     usage = {...budgetUsage(beforeCall.usage), calls: budgetUsage(beforeCall.usage).calls + 1};
@@ -118,6 +123,16 @@ async function handle(message, sender) {
     const stored = await browser.storage.local.get('readerJobs');
     return {ok:true,job:stored.readerJobs?.[sender.tab.id] || null};
   }
+  if (message?.type === 'readerResult') {
+    if (!sender.tab || sender.frameId !== 0 || !gmailURL(sender.url)) throw new Error('Origen de lectura no válido.');
+    const stored = await browser.storage.local.get('readerJobs');
+    const job = stored.readerJobs?.[sender.tab.id];
+    if (!job || job.token !== message.token || Date.now()-job.startedAt > 60000) throw new Error('Resultado de lectura no autorizado.');
+    const result = message.result || {};
+    const email = result.email || {};
+    readerResults.set(job.token, {ok:result.ok === true, restored:result.restored === true, error:cleanText(result.error,300), email:{body:cleanText(email.body,12001), sender:cleanText(email.sender,300), recipients:Array.isArray(email.recipients)?email.recipients.slice(0,30).map(x=>cleanText(x,300)):[]}});
+    return {ok:true};
+  }
   if (message?.type === 'email') return enqueue(message, sender);
   if (message?.type === 'health') {
     if (!sender.tab || sender.frameId !== 0 || !gmailURL(sender.url)) throw new Error('Origen no válido.');
@@ -132,6 +147,29 @@ async function handle(message, sender) {
     const key = await native({command: 'keyStatus'});
     const stored = await browser.storage.local.get('readerJobs');
     return {ok: true, config: data.config, usage: budgetUsage(data.usage), activity: data.activity, health: data.health || {}, keyConfigured: key.configured, pending: data.queue.length, readers:Object.keys(stored.readerJobs || {}).length};
+  }
+  if (message?.type === 'retryReader') {
+    const data = await read();
+    if (!data.config.active || !data.config.readFull) throw new Error('Activa el filtro con lectura completa antes de reintentar.');
+    const stored = await browser.storage.local.get('readerJobs');
+    const entry = Object.entries(stored.readerJobs || {})[0];
+    if (!entry) throw new Error('No hay una lectura pendiente.');
+    const [tabId, job] = entry;
+    let tab;
+    try { tab = await browser.tabs.get(Number(tabId)); }
+    catch {
+      const tabs = await browser.tabs.query({url:'https://mail.google.com/*'});
+      tab = tabs.find(candidate => gmailURL(candidate.url) && new URL(candidate.url).hash === `#inbox/${encodeURIComponent(job.id.replace(/^thread-f:/,''))}`);
+      if (!tab) throw new Error('No se encuentra el correo pendiente. Mantén abierta su pestaña para reintentar.');
+    }
+    const account = gmailURL(tab.url);
+    if (!account) throw new Error('La pestaña pendiente ya no contiene Gmail.');
+    const email = job.message || sanitizeMessage({id:job.id,subject:(tab.title || '').split(' - ')[0],wasUnread:job.wasUnread,receivedAt:Date.now()},tab.url);
+    if (tab.url !== email.threadURL) throw new Error('La pestaña pendiente ha cambiado de correo.');
+    const jobs = stored.readerJobs; delete jobs[tabId];
+    await browser.storage.local.set({readerJobs:jobs, queue:[...data.queue,{key:crypto.randomUUID(),message:{...email,receivedAt:Date.now()},readerTab:tab.id,revision:data.config.revision,attempt:0,nextAt:0}]});
+    await drain();
+    return {ok:true};
   }
   if (message?.type === 'saveKey') return native({command: 'saveKey', key: message.key});
   if (message?.type === 'deleteKey') return native({command: 'deleteKey'});
@@ -160,7 +198,7 @@ async function handle(message, sender) {
 }
 browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // Pausing invalidates in-flight decisions immediately, without waiting for Jev.
-  const immediate = message?.type === 'readerJob' || (message?.type === 'saveConfig' && trustedUI(sender));
+  const immediate = message?.type === 'readerJob' || message?.type === 'readerResult' || (message?.type === 'saveConfig' && trustedUI(sender));
   const result = immediate ? handle(message, sender) : serial(() => handle(message, sender));
   result.then(sendResponse, error => sendResponse({ok: false, error: error.message}));
   return true; // Keep Safari's response channel alive through native async work.

@@ -34,7 +34,7 @@
       });
       if (row?.classList.contains('zE')) return true;
       const notices = [...document.querySelectorAll('[role="alert"],.bAq')].map(node => node.textContent).join(' ');
-      if (/marcada como no le[ií]da|marked as unread/i.test(notices)) return true;
+      if (/marcad[oa].{0,60}(?:no le[ií]d[oa]|sin leer)|marked as unread/i.test(notices)) return true;
     }
     return false;
   }
@@ -54,13 +54,14 @@
       return {ok:true,email,restored:true};
     } finally { busy = false; }
   }
-  browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message?.type !== 'readFull') return false;
-    browser.runtime.sendMessage({type:'readerJob'}).then(result => {
-      if (!result?.job || result.job.token !== message.token) return {ok:false,error:'No es una pestaña temporal de lectura autorizada.'};
-      return read(result.job);
-    }).then(sendResponse, () => sendResponse({ok:false,error:'Error de lectura de Gmail.',restored:false}));
-    return true;
-  });
+  // The reader owns the async work. Safari need not hold a tabs.sendMessage
+  // response channel open while Gmail loads and unread state is restored.
+  browser.runtime.sendMessage({type:'readerJob'}).then(async result => {
+    if (!result?.job) return;
+    let outcome;
+    try { outcome = await read(result.job); }
+    catch { outcome = {ok:false,error:'Error de lectura de Gmail.',restored:false}; }
+    await browser.runtime.sendMessage({type:'readerResult',token:result.job.token,result:outcome});
+  }).catch(() => {});
   if (typeof module !== 'undefined' && module.exports) module.exports = {extractBody, unreadButton};
 })();

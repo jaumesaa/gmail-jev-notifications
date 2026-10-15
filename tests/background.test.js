@@ -20,8 +20,16 @@ async function setup({dailyLimit=100, evaluate, reader, notify, bundled=false}={
     alarms:{create:async()=>{},onAlarm:{addListener(){}}}
   };
   browser.tabs = {
+    query:async()=>[{id:91,url:'https://mail.google.com/mail/u/0/#inbox/abc',title:'Synthetic test - Gmail'}],
+    get:async id=>({id,url:'https://mail.google.com/mail/u/0/#inbox/abc',title:'Synthetic test - Gmail'}),
+    reload:async id=>browser.tabs.update(id,{url:'https://mail.google.com/mail/u/0/#inbox/abc'}),
     create:async options=>{calls.push({command:'createTab',options});return {id:91};},
-    update:async(id, options)=>{assert.ok(values.readerJobs[id]);calls.push({command:'updateTab',id,options});},
+    update:async(id, options)=>{
+      assert.ok(values.readerJobs[id]); calls.push({command:'updateTab',id,options});
+      const job=values.readerJobs[id];
+      const result=reader ? await reader(id,{token:job.token}) : {ok:true,restored:true,email:{body:'Full message body',sender:'Ana <ana@example.com>',recipients:['me@example.com']}};
+      await new Promise(resolve=>listener({type:'readerResult',token:job.token,result},{url:options.url,tab:{id},frameId:0},resolve));
+    },
     sendMessage:async(id,message)=>reader ? reader(id,message) : {ok:true,restored:true,email:{body:'Full message body',sender:'Ana <ana@example.com>',recipients:['me@example.com']}},
     remove:async id=>calls.push({command:'removeTab',id})
   };
@@ -116,4 +124,29 @@ test('Packaged classic background preserves Spanish accents without relying on d
   const f=await setup({bundled:true});
   await f.send({type:'testNotification'},f.ui);
   assert.equal(f.calls.find(x=>x.command==='notify').title,'Gmail con Jev está preparado');
+});
+
+test('A manual retry reuses an owned reader and still obeys the daily allowance',async()=>{
+  const f=await setup();f.values.config.readFull=true;
+  f.values.readerJobs={91:{id:'abc',wasUnread:true,token:'old',startedAt:Date.now()-120000}};
+  assert.equal((await f.send({type:'retryReader'},f.ui)).ok,true);
+  assert.equal(f.calls.filter(x=>x.command==='createTab').length,0);
+  assert.equal(f.calls.filter(x=>x.command==='evaluate').length,1);
+  assert.equal(f.values.usage.calls,1);
+  assert.deepEqual(f.values.readerJobs,{});
+});
+test('Reader completion cannot be forged by an unowned Gmail tab',async()=>{
+  const f=await setup();
+  assert.equal((await f.send({type:'readerResult',token:'forged',result:{ok:true,restored:true,email:{body:'forged'}}})).ok,false);
+  assert.equal(f.calls.length,0);
+});
+
+test('Retry can recover a reader whose Safari tab ID changed after reloading the extension',async()=>{
+  const f=await setup();f.values.config.readFull=true;
+  f.values.readerJobs={12:{id:'abc',wasUnread:true,token:'old',startedAt:Date.now()-120000}};
+  const get=browser.tabs.get;
+  browser.tabs.get=async id=>{if(id===12)throw new Error('Tab not found');return get(id);};
+  assert.equal((await f.send({type:'retryReader'},f.ui)).ok,true);
+  assert.equal(f.calls.filter(x=>x.command==='evaluate').length,1);
+  assert.deepEqual(f.values.readerJobs,{});
 });

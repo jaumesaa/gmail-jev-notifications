@@ -40,7 +40,7 @@ Si no aparece la extensión tras compilar o actualizar, abre GmailJev y pulsa **
 | Wifi bloquea TypeSafe o Gmail | El filtro necesita ambas conexiones; mostrará el error y no tratará un fallo como «no relevante» |
 | Se alcanzó el máximo diario | El filtro se pausa. Revisa el consumo antes de aumentar el límite o reactivarlo |
 
-Si una pestaña temporal queda abierta, revisa que ese correo vuelva a estar sin leer antes de cerrarla. La extensión no cierra automáticamente una pestaña si no pudo confirmar la restauración.
+Si una pestaña temporal queda abierta, puedes usar **Reintentar lectura pendiente** con el filtro activo en lectura completa. El reintento evalúa con los criterios actuales y cuenta contra el límite diario. Mantén abierta esa pestaña. Si prefieres cerrarla, revisa antes que ese correo vuelva a estar sin leer. La extensión no cierra automáticamente una pestaña si no pudo confirmar la restauración.
 
 ## Desinstalar
 
@@ -49,3 +49,5 @@ Pausa el filtro, pulsa **Borrar clave** y **Borrar actividad local**. Desactiva 
 ## Avisos y diagnóstico
 
 En los ajustes de la extensión puedes seleccionar ambos avisos, solo macOS o solo ventana flotante. La selección se guarda al activar o pausar. La app incluye **Probar ambos avisos** y un diagnóstico de entrega sin asuntos ni remitentes. El botón de prueba de la extensión comprueba además el envío a la app; «Solicitud enviada» no confirma por sí solo que macOS haya mostrado un banner. Revisa el diagnóstico y los ajustes de notificaciones/modos de concentración si no aparece. La ventana flotante permanece hasta cerrarla o recibir otra coincidencia y no necesita el permiso de banners de macOS.
+
+Al actualizar una compilación local con firma ad-hoc, macOS puede volver a pedir permiso de acceso al llavero para GmailJev Extension. Completa ese aviso personalmente; mientras espera, las operaciones con la clave pueden quedar pendientes.

@@ -5,11 +5,13 @@ import {readFileSync} from 'node:fs';
 import {parseHTML} from 'linkedom';
 function fixture(html) {
   const {document}=parseHTML(`<html><body>${html}</body></html>`);
-  let listener;
+  let result;
+  let resolveResult;
+  const ready=new Promise(resolve=>resolveResult=resolve);
   const job={id:'abc',wasUnread:true,token:'token'};
-  const context={document,browser:{runtime:{onMessage:{addListener:fn=>listener=fn},sendMessage:async()=>({job})}},setTimeout:fn=>setImmediate(fn),module:{exports:{}}};
+  const context={document,browser:{runtime:{sendMessage:async message=>{if(message.type==='readerJob')return {job};result=message.result;resolveResult(result);return {ok:true};}}},setTimeout:fn=>setImmediate(fn),module:{exports:{}}};
   vm.runInNewContext(readFileSync('extension/reader.js','utf8'),context);
-  return {document,job,helpers:context.module.exports,run:()=>new Promise(resolve=>listener({type:'readFull',token:'token'},{},resolve))};
+  return {document,job,helpers:context.module.exports,run:()=>ready};
 }
 test('Read the latest visible message with sender and available recipients',()=>{
   const f=fixture('<div class="adn"><div class="a3s">Old body</div></div><div class="adn"><span class="gD" name="Ana" email="ana@example.com"></span><span class="g2" email="me@example.com"></span><div class="a3s">Latest body</div></div>');
@@ -33,5 +35,13 @@ test('Do not report success when the unread control is missing',async()=>{
 });
 test('Originally read messages are left read',async()=>{
   const f=fixture('<div class="a3s">Hello</div>'); f.job.wasUnread=false;
+  const result=await f.run();assert.equal(result.ok,true);assert.equal(result.restored,true);
+});
+
+test('Accept Gmail Spanish unread confirmation while the conversation remains visible',async()=>{
+  const f=fixture('<div class="a3s">Hello</div><button aria-label="Marcar como no leído"></button>');
+  f.helpers.unreadButton().click=()=>{
+    const notice=f.document.createElement('div');notice.setAttribute('role','alert');notice.textContent='Se ha marcado la conversación como no leída.';f.document.body.append(notice);
+  };
   const result=await f.run();assert.equal(result.ok,true);assert.equal(result.restored,true);
 });

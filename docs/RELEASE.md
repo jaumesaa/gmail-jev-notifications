@@ -5,7 +5,7 @@
 Validated on the development Mac:
 
 - JavaScript syntax and manifest/asset checks.
-- 27 automated tests covering observation fixtures, timestamps, deduplication, replies, navigation, trusted senders, request construction, probability validation, network failures, daily budget and pause during an outstanding request.
+- 31 automated tests covering observation fixtures, timestamps, deduplication, replies, navigation, trusted senders, request construction, probability validation, network failures, daily budget and pause during an outstanding request.
 - Universal macOS app builds for arm64 and x86_64 with local ad-hoc signing.
 - Native setup app opens through macOS UI and displays the expected controls.
 - Safari recognizes the packaged extension, grants Gmail-only access and the popup successfully reads native key status/configuration.
@@ -17,7 +17,7 @@ Validated on the development Mac:
 **Still required before calling the release production-ready:**
 
 - [x] Enable the packaged extension in Safari and confirm native messaging works.
-- [ ] Verify temporary background reading, latest-body selection and unread restoration in real Gmail.
+- [ ] Complete temporary background reading and restoration validation. A real arrival was detected and opened, but the original asynchronous reader response failed; the message was manually restored to unread. Reader-initiated completion and a pending-reader retry are now implemented and await the live retest.
 - [x] Save a real TypeSafe key through the extension; confirm native Keychain status (deletion remains covered by code review, not a destructive live test).
 - [x] Run a synthetic live API connection test and confirm its typed response. The original sample returned 31%; the improved prompt/sample needs another measurement.
 - [ ] Complete new-arrival and inbox-category checks. Current live inbox selectors and Spanish date parsing produce a healthy heartbeat; English date parsing is fixture-tested.

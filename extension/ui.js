@@ -49,6 +49,7 @@ on('saveKey', async () => { await request({type: 'saveKey', key: $('key').value}
 on('deleteKey', async () => { await request({type: 'saveConfig', config: {...current, active: false}}); await request({type: 'deleteKey'}); feedback('Clave borrada y filtro pausado.'); });
 on('testKey', async () => { const result = await request({type: 'testKey'}); feedback(`Conexión correcta · ${result.model} · muestra: ${Math.round(result.probability * 100)} % de coincidencia. Esta prueba usa tu saldo.`); });
 on('testNotification', async () => { const result = await request({type: 'testNotification'}); feedback(result.warning || 'Aviso de prueba enviado.'); });
+on('retryReader', async () => { await request({type:'retryReader'}); feedback('Reintento completado. Revisa la actividad.'); });
 on('clearHistory', async () => { await request({type: 'clearHistory'}); feedback('Actividad borrada.'); });
 on('settings', async () => { await browser.tabs.create({url: browser.runtime.getURL('settings.html')}); });
 refresh(true).catch(error => feedback(error.message, true));

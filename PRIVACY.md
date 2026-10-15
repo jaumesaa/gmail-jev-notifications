@@ -15,7 +15,7 @@ Local browser storage contains:
 - up to 2,000 SHA-256 deduplication fingerprints;
 - up to 40 activity records containing timestamps, status, probability and answered model;
 - daily counters and Gmail heartbeat metadata (account slot paths, not account email addresses);
-- temporary reader-job metadata (tab ID, thread ID, token and original unread state). Interrupted jobs remain for diagnosis; the temporary tab is left open if restoration cannot be confirmed. Body text is not persisted by the project, though Gmail itself loads it in its tab.
+- temporary reader-job metadata (tab ID, thread ID, token, original unread state and the bounded original preview record, so an interrupted read can be retried). Interrupted jobs remain for diagnosis; the temporary tab is left open if restoration cannot be confirmed. Body text is not persisted by the project, though Gmail itself loads it in its tab.
 
 Pausing clears pending previews. Editing/saving criteria starts a new session and clears pending previews. Deleting the key pauses the filter. Use Clear local activity to remove activity records; browser-managed extension storage is separate from the Keychain item. The Keychain item must be deleted before uninstall, or later via Keychain Access (`GmailJev.TypeSafe`). It is not synchronized intentionally by the project. The shared Keychain entry is the same for all Safari profiles using this native extension; criteria/state remain under Safari's storage behavior.
 
